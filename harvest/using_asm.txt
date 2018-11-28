@@ -1,0 +1,20 @@
+// Using asm
+// by https://stackoverflow.com/users/341106/kevin
+
+// We want to watch reading from or writing into
+// 1 qword at address 100005120h (address range
+// 100005120h-100005127h)
+
+lea rax, [100005120h]
+ mov dr0, rax
+ mov rax, dr7
+ and eax, not ((1111b shl 16) + 11b)    ; mask off all
+ or eax, (1011b shl 16) + 1     ; prepare to set what we want
+ mov 
+ dr7, rax               ; set it finally
+
+
+ // Done, now we can wait until code falls into
+ // the trap! After accessing any byte at memory
+ // range 100005120h-100005127h, int 1 will occur
+ // and DR6.B0 bit will be set to 1.

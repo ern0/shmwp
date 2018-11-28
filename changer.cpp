@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <signal.h>
 #include <sys/shm.h> 
 #include <sys/stat.h> 
+
 
 
 int main(int argc, char* argv[]) {

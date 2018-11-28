@@ -15,6 +15,8 @@
 #include <stdbool.h>
 
 extern int errno;
+static pid_t extpid;
+
 
 enum {
 	BREAK_EXEC = 0x0,
@@ -42,6 +44,7 @@ enum {
  * handling context.
  */
 bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
+
 	pid_t child = 0;
 	uint32_t enable_breakpoint = ENABLE_BREAKPOINT(bpno);
 	uint32_t enable_breakwrite = ENABLE_BREAK_WRITE(bpno);
@@ -51,11 +54,14 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 	if (!(child = fork()))
 	{
 		int parent_status = 0;
-		if (ptrace(PTRACE_ATTACH, parent, NULL, NULL))
+		if (ptrace(PTRACE_ATTACH, parent, NULL, NULL)) {
+			printf("ptrace attach fail \n");
 			_exit(1);
+		}
 
-		while (!WIFSTOPPED(parent_status))
+		while (!WIFSTOPPED(parent_status)) {
 			waitpid(parent, &parent_status, 0);
+		}
 	
 		/*
 		 * set the breakpoint address.
@@ -63,8 +69,10 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		if (ptrace(PTRACE_POKEUSER,
 		           parent,
 		           offsetof(struct user, u_debugreg[bpno]),
-		           addr))
+		           addr)) 
+		{
 			_exit(1);
+		}
 
 		/*
 		 * set parameters for when the breakpoint should be triggered.
@@ -72,11 +80,14 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		if (ptrace(PTRACE_POKEUSER,
 		           parent,
 		           offsetof(struct user, u_debugreg[7]),
-		           enable_breakwrite | enable_breakpoint))
-			_exit(1);
+		           enable_breakwrite | enable_breakpoint)) 
+		{
+			_exit(1);			
+		}
 
-		if (ptrace(PTRACE_DETACH, parent, NULL, NULL))
+		if (ptrace(PTRACE_DETACH, parent, NULL, NULL)) {
 			_exit(1);
+		}
 
 		_exit(0);
 	}
@@ -110,6 +121,17 @@ void handle(int s) {
 
 
 int main(int argc, char **argv) {
+
+	if (argc < 2) {
+		printf("specify PID \n");
+		exit(1);
+	}
+	pid_t extpid = atoi(argv[1]);
+	if (extpid == 0) {
+		printf("invalid PID \n");
+		exit(1);
+	}
+	fprintf(stderr,"PID=%d - ",extpid);
 
 	static uint32_t* ptr;
 

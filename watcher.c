@@ -54,23 +54,25 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 	if (!(child = fork()))
 	{
 		int parent_status = 0;
-		if (ptrace(PTRACE_ATTACH, parent, NULL, NULL)) {
-			printf("ptrace attach fail \n");
+		if (ptrace(PTRACE_ATTACH, extpid, NULL, NULL)) {
+			perror("ptrace attach fail");
+			printf("%d\n",extpid);
 			_exit(1);
 		}
 
 		while (!WIFSTOPPED(parent_status)) {
-			waitpid(parent, &parent_status, 0);
+			waitpid(extpid, &parent_status, 0);
 		}
 	
 		/*
 		 * set the breakpoint address.
 		 */
 		if (ptrace(PTRACE_POKEUSER,
-		           parent,
+		           extpid,
 		           offsetof(struct user, u_debugreg[bpno]),
 		           addr)) 
 		{
+			perror("wut1");
 			_exit(1);
 		}
 
@@ -78,14 +80,19 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		 * set parameters for when the breakpoint should be triggered.
 		 */
 		if (ptrace(PTRACE_POKEUSER,
-		           parent,
+		           extpid,
 		           offsetof(struct user, u_debugreg[7]),
 		           enable_breakwrite | enable_breakpoint)) 
 		{
+			perror("wut2");
 			_exit(1);			
 		}
 
-		if (ptrace(PTRACE_DETACH, parent, NULL, NULL)) {
+		// itt kene nezni, hogy mi tortent az extpid-ben
+		//while (true) sleep(1);
+
+		if (ptrace(PTRACE_DETACH, extpid, NULL, NULL)) {
+			perror("wut3");
 			_exit(1);
 		}
 
@@ -126,7 +133,7 @@ int main(int argc, char **argv) {
 		printf("specify PID \n");
 		exit(1);
 	}
-	pid_t extpid = atoi(argv[1]);
+	extpid = atoi(argv[1]);
 	if (extpid == 0) {
 		printf("invalid PID \n");
 		exit(1);
@@ -145,6 +152,7 @@ int main(int argc, char **argv) {
 
 	if (!install_breakpoint(ptr, 0, handle)) {
 		printf("failed to set the breakpoint!\n");
+		exit(1);
 	}
 
 	(*ptr)++;

@@ -54,8 +54,6 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		if (ptrace(PTRACE_ATTACH, parent, NULL, NULL))
 			_exit(1);
 
-		printf("$%x\n",addr);
-
 		while (!WIFSTOPPED(parent_status))
 			waitpid(parent, &parent_status, 0);
 	
@@ -108,16 +106,14 @@ static int handled = 0;
 
 void handle(int s) {
 	handled++;
-	return;
 }
 
 
 int main(int argc, char **argv) {
 
-	int id;
-	uint32_t* ptr;
+	static uint32_t* ptr;
 
-	id = shmget(0x2018, 0, 0); 
+	int id = shmget(0x2018, 0, 0); 
 	if (id == -1) {
 		fprintf(stderr, "shmget failed");
 		exit(1);
@@ -125,15 +121,11 @@ int main(int argc, char **argv) {
 
 	ptr = (uint32_t*)shmat(id, 0, 0);
 
-	int a = 0;
-
 	if (!install_breakpoint(ptr, 0, handle)) {
 		printf("failed to set the breakpoint!\n");
 	}
 
-	a++;
-
-	*ptr++;
+	(*ptr)++;
 
 	while (true) {
 		fprintf(stderr,"[%d:%d]",handled,*ptr);

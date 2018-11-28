@@ -106,6 +106,7 @@ static int handled = 0;
 
 void handle(int s) {
 	handled++;
+	signal(SIGTRAP,handle);
 }
 
 
@@ -125,6 +126,8 @@ int main(int argc, char **argv) {
 		printf("failed to set the breakpoint!\n");
 	}
 
+	(*ptr)++;
+	sleep(1);
 	(*ptr)++;
 
 	while (true) {

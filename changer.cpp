@@ -7,8 +7,13 @@
 #include <sys/stat.h> 
 
 
+void handler(int sig) {
+	fprintf(stderr,"#");
+}
 
 int main(int argc, char* argv[]) {
+
+	signal(SIGTRAP, handler);
 
 	int id = shmget(0x2018, 0x1000, IPC_CREAT | 0666); 
 	if (id == -1) {
@@ -16,14 +21,19 @@ int main(int argc, char* argv[]) {
 		exit(1);
 	}
 
-	uint32_t* ptr = (uint32_t*)shmat(id, 0, 0);
+	void* ptr = shmat(id, 0, 0);
+	uint32_t* iptr = (uint32_t*)ptr;
+	void** pptr = (void**)ptr;
+	pptr[5] = ptr;
 
-	*ptr = 0;
+	fprintf(stderr,"PID=%d PTR=$%X - ",getpid(),ptr);
+
+	*iptr = 0;
 
 	while (true) {
-		fprintf(stderr,"%d.",*ptr);
+		fprintf(stderr,"%d.",*iptr);
 		fflush(stderr);
-		(*ptr)++;
+		(*iptr)++;
 		sleep(2);
 	}
 

@@ -48,7 +48,6 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 	pid_t child = 0;
 	uint32_t enable_breakpoint = ENABLE_BREAKPOINT(bpno);
 	uint32_t enable_breakwrite = ENABLE_BREAK_WRITE(bpno);
-	pid_t parent = getpid();
 	int child_status = 0;
 
 	if (!(child = fork()))
@@ -68,9 +67,9 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		 * set the breakpoint address.
 		 */
 		if (ptrace(PTRACE_POKEUSER,
-		           extpid,
-		           offsetof(struct user, u_debugreg[bpno]),
-		           addr)) 
+			extpid,
+			offsetof(struct user, u_debugreg[bpno]),
+			addr)) 
 		{
 			perror("wut1");
 			_exit(1);
@@ -80,16 +79,13 @@ bool install_breakpoint(void *addr, int bpno, void (*handler)(int)) {
 		 * set parameters for when the breakpoint should be triggered.
 		 */
 		if (ptrace(PTRACE_POKEUSER,
-		           extpid,
-		           offsetof(struct user, u_debugreg[7]),
-		           enable_breakwrite | enable_breakpoint)) 
+			extpid,
+			offsetof(struct user, u_debugreg[7]),
+			enable_breakwrite | enable_breakpoint)) 
 		{
 			perror("wut2");
 			_exit(1);			
 		}
-
-		// itt kene nezni, hogy mi tortent az extpid-ben
-		//while (true) sleep(1);
 
 		if (ptrace(PTRACE_DETACH, extpid, NULL, NULL)) {
 			perror("wut3");
@@ -123,6 +119,7 @@ bool disable_breakpoint(int bpno)
 static int handled = 0;
 
 void handle(int s) {
+	fprintf(stderr,"#");
 	handled++;
 }
 
@@ -135,12 +132,8 @@ int main(int argc, char **argv) {
 	}
 	extpid = atoi(argv[1]);
 	if (extpid == 0) {
-		printf("invalid PID \n");
-		exit(1);
+		extpid = getpid();
 	}
-	fprintf(stderr,"PID=%d - ",extpid);
-
-	static uint32_t* ptr;
 
 	int id = shmget(0x2018, 0, 0); 
 	if (id == -1) {
@@ -148,24 +141,30 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	ptr = (uint32_t*)shmat(id, 0, 0);
+	void* ptr = shmat(id, 0, 0);
+	uint32_t* iptr = (uint32_t*)ptr;
+	void** pptr = (void**)ptr;
+	void* extptr = pptr[5];
 
-	if (!install_breakpoint(ptr, 0, handle)) {
+	fprintf(stderr,"PID=%d PTR=$%X - ",extpid,extptr);
+
+	if (!install_breakpoint(extptr, 0, handle)) {
 		printf("failed to set the breakpoint!\n");
 		exit(1);
 	}
 
-	(*ptr)++;
+	(*iptr)++;
 
 	while (true) {
-		fprintf(stderr,"[%d:%d]",handled,*ptr);
+		fprintf(stderr,"[%d:%d]",handled,*iptr);
 		fflush(stderr);
 		sleep(1);
 		if (handled > 6) break;
 	}
 
-	if (!disable_breakpoint(0))
+	if (!disable_breakpoint(0)) {
 		printf("failed to disable the breakpoint!\n");
+	}
 
 	return 0;
 } // main()
